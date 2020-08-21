@@ -8,10 +8,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.MediaType;
+import org.reactivestreams.Publisher;
+import org.springframework.test.web.reactive.server.FluxExchangeResult;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
 import java.util.List;
 import java.util.stream.IntStream;
@@ -19,12 +21,10 @@ import java.util.stream.IntStream;
 import static com.artarkatesoft.artsfgspring5webfluxrest.controllers.VendorController.BASE_URL;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
-import static org.springframework.http.MediaType.*;
+import static org.springframework.http.MediaType.APPLICATION_JSON;
 
 @ExtendWith(MockitoExtension.class)
 class VendorControllerTest {
@@ -81,6 +81,54 @@ class VendorControllerTest {
                 .isEqualTo(stubVendor);
 
         then(vendorRepository).should().findById(eq("someId"));
+    }
+
+    @Test
+    void createVendor_single() {
+        //given
+        Vendor vendorToSave = createStubVendor(1);
+        given(vendorRepository.saveAll(any(Publisher.class))).willReturn(Flux.just(vendorToSave));
+        //when
+        FluxExchangeResult<Vendor> result = webTestClient
+                .post()
+                .uri(BASE_URL)
+                .contentType(APPLICATION_JSON)
+                .bodyValue(vendorToSave)
+                .exchange()
+                //then
+                .expectStatus().isCreated()
+                .expectHeader().contentType(APPLICATION_JSON)
+                .returnResult(Vendor.class);
+
+        Flux<Vendor> responseBody = result.getResponseBody();
+        StepVerifier.create(responseBody)
+                .expectNext(vendorToSave)
+                .verifyComplete();
+        then(vendorRepository).should().saveAll(any(Publisher.class));
+    }
+
+    @Test
+    void createVendor_multi() {
+        //given
+        List<Vendor> vendorList = IntStream.rangeClosed(1, 3).mapToObj(this::createStubVendor).collect(toList());
+        given(vendorRepository.saveAll(any(Publisher.class))).willReturn(Flux.fromIterable(vendorList));
+        //when
+        FluxExchangeResult<Vendor> result = webTestClient
+                .post()
+                .uri(BASE_URL)
+                .contentType(APPLICATION_JSON)
+                .body(Flux.fromIterable(vendorList), Vendor.class)
+                .exchange()
+                //then
+                .expectStatus().isCreated()
+                .expectHeader().contentType(APPLICATION_JSON)
+                .returnResult(Vendor.class);
+
+        Flux<Vendor> responseBody = result.getResponseBody();
+        StepVerifier.create(responseBody)
+                .expectNextCount(3)
+                .verifyComplete();
+        then(vendorRepository).should().saveAll(any(Publisher.class));
     }
 
     private Vendor createStubVendor(int stubId) {
