@@ -43,4 +43,23 @@ public class VendorController {
                 .doOnNext(vendor -> vendor.setId(id))
                 .flatMap(vendorRepository::save);
     }
+
+    @PatchMapping("{id}")
+    public Mono<Vendor> updateVendorUsingPatch(@PathVariable String id, @RequestBody Mono<Vendor> vendorMono) {
+        return vendorRepository.findById(id)
+                .switchIfEmpty(Mono.error(new RuntimeException("Vendor with id `" + id + "` NOT FOUND")))
+                .zipWith(vendorMono)
+                .map(tuple2 -> {
+                    Vendor vendorRepo = tuple2.getT1();
+                    Vendor vendorWithNewFields = tuple2.getT2();
+                    String newFirstName = vendorWithNewFields.getFirstName();
+                    String newLastName = vendorWithNewFields.getLastName();
+                    if (newFirstName != null) vendorRepo.setFirstName(newFirstName);
+                    if (newLastName != null) vendorRepo.setLastName(newLastName);
+                    return vendorRepo;
+                })
+                .flatMap(vendorRepository::save);
+    }
+
+
 }
