@@ -4,10 +4,9 @@ import com.artarkatesoft.artsfgspring5webfluxrest.domain.Category;
 import com.artarkatesoft.artsfgspring5webfluxrest.repositories.CategoryRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.reactivestreams.Publisher;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -29,5 +28,11 @@ public class CategoryController {
     @GetMapping("{id}")
     public Mono<Category> getById(@PathVariable("id") String id) {
         return categoryRepository.findById(id);
+    }
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public Flux<Category> createCategory(@RequestBody Publisher<Category> categoryPublisher) {
+        return categoryRepository.saveAll(categoryPublisher);
     }
 }

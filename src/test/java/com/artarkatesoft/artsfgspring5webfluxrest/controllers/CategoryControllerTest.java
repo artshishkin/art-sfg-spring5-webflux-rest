@@ -4,6 +4,7 @@ import com.artarkatesoft.artsfgspring5webfluxrest.domain.Category;
 import com.artarkatesoft.artsfgspring5webfluxrest.repositories.CategoryRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -12,15 +13,16 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static com.artarkatesoft.artsfgspring5webfluxrest.controllers.CategoryController.*;
+import static com.artarkatesoft.artsfgspring5webfluxrest.controllers.CategoryController.BASE_URL;
+import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
-import static org.springframework.http.MediaType.*;
+import static org.springframework.http.MediaType.APPLICATION_JSON;
 
 @WebFluxTest(CategoryController.class)
 class CategoryControllerTest {
@@ -39,7 +41,7 @@ class CategoryControllerTest {
     void setUp() {
         stubCategoryList = IntStream.rangeClosed(1, SIZE)
                 .mapToObj(this::createStubCategory)
-                .collect(Collectors.toList());
+                .collect(toList());
     }
 
     @Test
@@ -79,6 +81,48 @@ class CategoryControllerTest {
                 .expectHeader().contentType(APPLICATION_JSON)
                 .expectBody(Category.class)
                 .isEqualTo(stubCategory);
+    }
+
+    @Test
+    void createCategory_single() {
+        //given
+        Category categoryToSave = Category.builder().id("myId").name("myName").build();
+        given(categoryRepository.saveAll(any(Publisher.class))).willReturn(Flux.just(categoryToSave));
+
+        //when
+        webTestClient
+                .post()
+                .uri(BASE_URL)
+                .contentType(APPLICATION_JSON)
+                .bodyValue(categoryToSave)
+                .exchange()
+                //then
+                .expectStatus().isCreated()
+                .expectBodyList(Category.class)
+                .hasSize(1)
+                .value(list -> assertThat(list.get(0)).isEqualTo(categoryToSave));
+        then(categoryRepository).should().saveAll(any(Publisher.class));
+    }
+
+    @Test
+    void createCategory_multiple() {
+        //given
+        List<Category> stubCategories = IntStream.rangeClosed(1, SIZE).mapToObj(this::createStubCategory).collect(toList());
+        given(categoryRepository.saveAll(any(Publisher.class))).willReturn(Flux.fromIterable(stubCategories));
+
+        //when
+        webTestClient
+                .post()
+                .uri(BASE_URL)
+                .contentType(APPLICATION_JSON)
+                .bodyValue(stubCategories)
+                .exchange()
+                //then
+                .expectStatus().isCreated()
+                .expectBodyList(Category.class)
+                .hasSize(SIZE)
+                .isEqualTo(stubCategories);
+        then(categoryRepository).should().saveAll(any(Publisher.class));
     }
 
     private Category createStubCategory(int stubId) {
