@@ -24,6 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.never;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 
 @ExtendWith(MockitoExtension.class)
@@ -129,6 +130,46 @@ class VendorControllerTest {
                 .expectNextCount(3)
                 .verifyComplete();
         then(vendorRepository).should().saveAll(any(Publisher.class));
+    }
+
+    @Test
+    void updateVendorUsingPut_whenPresent() {
+        //given
+        Vendor vendorToUpdate = Vendor.builder().firstName("foo").lastName("bar").build();
+        Vendor stubVendor = Vendor.builder().id("someId").firstName("foo").lastName("bar").build();
+        given(vendorRepository.findById(anyString())).willReturn(Mono.just(stubVendor));
+        given(vendorRepository.save(any(Vendor.class))).willReturn(Mono.just(stubVendor));
+        //when
+        webTestClient.put().uri(BASE_URL + "/{id}", "someId")
+                .bodyValue(vendorToUpdate)
+                .exchange()
+                //then
+                .expectStatus().isOk()
+                .expectHeader().contentType(APPLICATION_JSON)
+                .expectBody(Vendor.class)
+                .isEqualTo(stubVendor);
+        then(vendorRepository).should().findById(eq("someId"));
+        then(vendorRepository).should().save(eq(stubVendor));
+    }
+
+    @Test
+    void updateVendorUsingPut_whenAbsent() {
+        //given
+        Vendor vendorToUpdate = Vendor.builder().firstName("foo").lastName("bar").build();
+        Vendor stubVendor = Vendor.builder().id("someId").firstName("foo").lastName("bar").build();
+        given(vendorRepository.findById(anyString())).willReturn(Mono.empty());
+        //when
+        Flux<Object> responseBody = webTestClient.put().uri(BASE_URL + "/{id}", "someId")
+                .bodyValue(vendorToUpdate)
+                .exchange()
+                //then
+                .expectStatus().is5xxServerError()
+                .returnResult(Object.class)
+                .getResponseBody();
+        responseBody.subscribe(System.out::println);
+//        responseBody.subscribe();
+        then(vendorRepository).should().findById(eq("someId"));
+        then(vendorRepository).should(never()).save(any());
     }
 
     private Vendor createStubVendor(int stubId) {

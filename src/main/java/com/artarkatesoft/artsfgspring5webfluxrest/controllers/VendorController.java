@@ -34,4 +34,13 @@ public class VendorController {
     public Flux<Vendor> createVendor(@RequestBody Publisher<Vendor> vendorStream) {
         return vendorRepository.saveAll(vendorStream);
     }
+
+    @PutMapping("{id}")
+    public Mono<Vendor> updateVendorUsingPut(@PathVariable String id, @RequestBody Mono<Vendor> vendorMono) {
+        return vendorRepository.findById(id)
+                .switchIfEmpty(Mono.error(new RuntimeException("Vendor with id `" + id + "` NOT FOUND")))
+                .then(vendorMono)
+                .doOnNext(vendor -> vendor.setId(id))
+                .flatMap(vendorRepository::save);
+    }
 }
