@@ -10,6 +10,6 @@ import org.springframework.data.mongodb.core.mapping.Document;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class Category {
     @Id
-    private String Id;
+    private String id;
     private String name;
 }
