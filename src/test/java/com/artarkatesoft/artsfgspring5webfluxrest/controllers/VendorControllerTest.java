@@ -153,6 +153,27 @@ class VendorControllerTest {
     }
 
     @Test
+    void updateVendorFirstNameUsingPatch_whenPresent() {
+        //given
+        Vendor stubVendor = Vendor.builder().id("someId").firstName("foo").lastName("bar").build();
+        Vendor updatedVendor = Vendor.builder().id("someId").firstName("Art").lastName("bar").build();
+        given(vendorRepository.findById(anyString())).willReturn(Mono.just(stubVendor));
+        given(vendorRepository.save(any(Vendor.class))).willReturn(Mono.just(updatedVendor));
+        //when
+        webTestClient.patch().uri(BASE_URL + "/{id}", "someId")
+                .contentType(APPLICATION_JSON)
+                .bodyValue("{\"firstName\":\"Art\"}")
+                .exchange()
+                //then
+                .expectStatus().isOk()
+                .expectHeader().contentType(APPLICATION_JSON)
+                .expectBody(Vendor.class)
+                .isEqualTo(stubVendor);
+        then(vendorRepository).should().findById(eq("someId"));
+        then(vendorRepository).should().save(eq(updatedVendor));
+    }
+
+    @Test
     void updateVendorUsingPut_whenAbsent() {
         //given
         Vendor vendorToUpdate = Vendor.builder().firstName("foo").lastName("bar").build();
@@ -168,6 +189,26 @@ class VendorControllerTest {
                 .getResponseBody();
         responseBody.subscribe(System.out::println);
 //        responseBody.subscribe();
+        then(vendorRepository).should().findById(eq("someId"));
+        then(vendorRepository).should(never()).save(any());
+    }
+
+    @Test
+    void updateVendorUsingPatch_whenAbsent() {
+        //given
+        Vendor vendorToUpdate = Vendor.builder().firstName("foo").lastName("bar").build();
+        Vendor stubVendor = Vendor.builder().id("someId").firstName("foo").lastName("bar").build();
+        given(vendorRepository.findById(anyString())).willReturn(Mono.empty());
+        //when
+        Flux<Object> responseBody = webTestClient.patch().uri(BASE_URL + "/{id}", "someId")
+                .bodyValue(vendorToUpdate)
+                .exchange()
+                //then
+                .expectStatus().is5xxServerError()
+                .returnResult(Object.class)
+                .getResponseBody();
+        responseBody.subscribe(System.out::println);
+
         then(vendorRepository).should().findById(eq("someId"));
         then(vendorRepository).should(never()).save(any());
     }
