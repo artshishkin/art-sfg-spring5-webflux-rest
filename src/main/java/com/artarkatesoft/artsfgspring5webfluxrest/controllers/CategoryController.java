@@ -35,4 +35,14 @@ public class CategoryController {
     public Flux<Category> createCategory(@RequestBody Publisher<Category> categoryPublisher) {
         return categoryRepository.saveAll(categoryPublisher);
     }
+
+    @PutMapping("{id}")
+    public Mono<Category> updateCategoryUsingPut(@PathVariable String id, @RequestBody Mono<Category> categoryMono) {
+        return categoryRepository.findById(id)
+                .switchIfEmpty(Mono.error(new RuntimeException("Category with id `" + id + "` not found")))
+                .then(categoryMono)
+                .doOnNext(category -> category.setId(id))
+                .flatMap(categoryRepository::save)
+                .log("Category saved");
+    }
 }

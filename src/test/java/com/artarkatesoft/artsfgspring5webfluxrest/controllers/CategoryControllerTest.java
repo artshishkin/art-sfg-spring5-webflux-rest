@@ -18,10 +18,10 @@ import java.util.stream.IntStream;
 import static com.artarkatesoft.artsfgspring5webfluxrest.controllers.CategoryController.BASE_URL;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.never;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 
 @WebFluxTest(CategoryController.class)
@@ -124,6 +124,46 @@ class CategoryControllerTest {
                 .isEqualTo(stubCategories);
         then(categoryRepository).should().saveAll(any(Publisher.class));
     }
+
+    @Test
+    void updateCategoryUsingPut_whenPresent() {
+        //given
+        Category repoCategory = Category.builder().id("someId").name("Foo").build();
+        Category categoryToUpdate = Category.builder().id("someId").name("Bar").build();
+        given(categoryRepository.findById(anyString())).willReturn(Mono.just(repoCategory));
+        given(categoryRepository.save(any(Category.class))).willReturn(Mono.just(categoryToUpdate));
+
+        //when
+        webTestClient.put().uri(BASE_URL + "/{id}", "someId")
+                .contentType(APPLICATION_JSON)
+                .bodyValue(categoryToUpdate)
+                .exchange()
+                //then
+                .expectStatus().isOk()
+                .expectHeader().contentType(APPLICATION_JSON)
+                .expectBody(Category.class)
+                .isEqualTo(categoryToUpdate);
+        then(categoryRepository).should().findById(eq("someId"));
+        then(categoryRepository).should().save(eq(categoryToUpdate));
+    }
+
+    @Test
+    void updateCategoryUsingPut_whenAbsent() {
+        //given
+        Category categoryToUpdate = Category.builder().id("someId").name("Bar").build();
+        given(categoryRepository.findById(anyString())).willReturn(Mono.empty());
+
+        //when
+        webTestClient.put().uri(BASE_URL + "/{id}", "someId")
+                .contentType(APPLICATION_JSON)
+                .bodyValue(categoryToUpdate)
+                .exchange()
+                //then
+                .expectStatus().is5xxServerError();
+        then(categoryRepository).should().findById(eq("someId"));
+        then(categoryRepository).should(never()).save(any());
+    }
+
 
     private Category createStubCategory(int stubId) {
         return Category.builder()
