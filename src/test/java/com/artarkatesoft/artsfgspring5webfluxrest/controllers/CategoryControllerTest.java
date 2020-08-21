@@ -165,6 +165,47 @@ class CategoryControllerTest {
     }
 
 
+    @Test
+    void updateCategoryNameUsingPatch_whenPresent() {
+        //given
+        Category repoCategory = Category.builder().id("someId").name("Foo").build();
+        Category categoryToUpdate = Category.builder().id("someId").name("Art").build();
+        given(categoryRepository.findById(anyString())).willReturn(Mono.just(repoCategory));
+        given(categoryRepository.save(any(Category.class))).willReturn(Mono.just(categoryToUpdate));
+
+        //when
+        webTestClient.patch().uri(BASE_URL + "/{id}", "someId")
+                .contentType(APPLICATION_JSON)
+                .bodyValue("{\"name\":\"Art\"}")
+                .exchange()
+                //then
+                .expectStatus().isOk()
+                .expectHeader().contentType(APPLICATION_JSON)
+                .expectBody(Category.class)
+                .isEqualTo(categoryToUpdate);
+        then(categoryRepository).should().findById(eq("someId"));
+        then(categoryRepository).should().save(eq(categoryToUpdate));
+    }
+
+
+    @Test
+    void updateCategoryUsingPatch_whenAbsent() {
+        //given
+        Category categoryToUpdate = Category.builder().id("someId").name("Bar").build();
+        given(categoryRepository.findById(anyString())).willReturn(Mono.empty());
+
+        //when
+        webTestClient.patch().uri(BASE_URL + "/{id}", "someId")
+                .contentType(APPLICATION_JSON)
+                .bodyValue(categoryToUpdate)
+                .exchange()
+                //then
+                .expectStatus().is5xxServerError();
+        then(categoryRepository).should().findById(eq("someId"));
+        then(categoryRepository).should(never()).save(any());
+    }
+
+
     private Category createStubCategory(int stubId) {
         return Category.builder()
                 .id("id" + stubId)

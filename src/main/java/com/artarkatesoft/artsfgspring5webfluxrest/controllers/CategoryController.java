@@ -45,4 +45,17 @@ public class CategoryController {
                 .flatMap(categoryRepository::save)
                 .log("Category saved");
     }
+
+    @PatchMapping("{id}")
+    public Mono<Category> updateCategoryUsingPatch(@PathVariable String id, @RequestBody Category categoryNew) {
+        return categoryRepository.findById(id)
+                .switchIfEmpty(Mono.error(new RuntimeException("Category with id `" + id + "` not found")))
+                .map(category -> {
+                    String newName = categoryNew.getName();
+                    if (newName != null) category.setName(newName);
+                    return category;
+                })
+                .flatMap(categoryRepository::save)
+                .log("Category saved");
+    }
 }
